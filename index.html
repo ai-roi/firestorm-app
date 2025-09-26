@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>炎上シミュレーター</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap');
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            background-color: #0d0d0d;
+            color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 1rem;
+        }
+        .container {
+            background-color: #1a1a1a;
+            border-radius: 1rem;
+            padding: 2rem;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+        }
+        .thread-container {
+            background-color: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            font-family: 'MS Gothic', 'MS PGothic', monospace;
+            color: #ccc;
+            line-height: 1.5;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .comment {
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="start-container" class="container">
+        <h1 class="text-3xl font-bold text-center mb-6">炎上シミュレーター</h1>
+        <p class="text-center mb-8">プロフィール情報を入力して、あなたの炎上を体験しましょう。</p>
+        <form id="profile-form" class="space-y-4">
+            <div>
+                <label for="name" class="block text-sm font-medium text-gray-400">ニックネーム</label>
+                <input type="text" id="name" required class="mt-1 block w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 text-white">
+            </div>
+            <div>
+                <label for="post-text" class="block text-sm font-medium text-gray-400">投稿文</label>
+                <textarea id="post-text" rows="3" required class="mt-1 block w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 text-white"></textarea>
+            </div>
+            <div>
+                <label for="image-upload" class="block text-sm font-medium text-gray-400">画像アップロード</label>
+                <input type="file" id="image-upload" accept="image/*" required class="mt-1 block w-full text-white">
+            </div>
+            <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-md font-bold hover:bg-blue-700 transition duration-300">シミュレーション開始</button>
+        </form>
+    </div>
+
+    <div id="simulation-container" class="hidden container">
+        <div class="flex items-center space-x-4 mb-6">
+            <img id="profile-image" class="w-16 h-16 rounded-full border-2 border-gray-600" src="https://placehold.co/100x100/3d3d3d/ffffff?text=User" alt="User Profile Image">
+            <div>
+                <h2 id="user-name" class="text-xl font-bold"></h2>
+            </div>
+        </div>
+        
+        <img id="post-image" class="w-full h-auto rounded-lg mb-4 max-h-96 object-cover" src="" alt="User Post Image">
+        <p id="post-text-display" class="bg-gray-800 p-4 rounded-lg text-gray-300 mb-6"></p>
+
+        <div id="thread-board" class="thread-container mb-6">
+            <!-- 5ちゃんねる風コメントがここに表示されます -->
+        </div>
+
+        <div id="choice-container" class="hidden grid grid-cols-2 gap-4 mt-6">
+            <button id="choice-btn-1" class="bg-gray-600 text-white py-2 rounded-md font-bold hover:bg-gray-700 transition duration-300">無視する</button>
+            <button id="choice-btn-2" class="bg-red-600 text-white py-2 rounded-md font-bold hover:bg-red-700 transition duration-300">投稿を削除</button>
+            <button id="choice-btn-3" class="bg-yellow-600 text-white py-2 rounded-md font-bold hover:bg-yellow-700 transition duration-300">削除＆謝罪</button>
+            <button id="choice-btn-4" class="bg-blue-600 text-white py-2 rounded-md font-bold hover:bg-blue-700 transition duration-300">法的処置</button>
+        </div>
+    </div>
+    
+    <!-- 結果表示モーダル -->
+    <div id="result-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+        <div class="bg-white text-black rounded-lg p-6 w-full max-w-sm text-center">
+            <h3 class="text-2xl font-bold mb-4 text-red-600">炎上体験終了</h3>
+            <p class="text-lg mb-2">あなたの最終スコア</p>
+            <p id="final-score" class="text-6xl font-extrabold text-blue-600 mb-4"></p>
+            <p id="score-message" class="text-sm text-gray-700 mb-4"></p>
+            <a href="https://lite.tiktok.com/t/ZSHWBPL5GEwgU-ycDVM/" class="block text-blue-600 font-bold underline mb-6" target="_blank">
+                無料登録で動画を見るだけでお小遣いGETできるアプリ
+            </a>
+            <button onclick="window.location.reload()" class="mt-6 w-full bg-blue-600 text-white py-2 rounded-md font-bold">もう一度試す</button>
+        </div>
+    </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const startContainer = document.getElementById('start-container');
+        const simulationContainer = document.getElementById('simulation-container');
+        const profileForm = document.getElementById('profile-form');
+        const userName = document.getElementById('user-name');
+        const postTextDisplay = document.getElementById('post-text-display');
+        const profileImage = document.getElementById('profile-image');
+        const postImage = document.getElementById('post-image');
+        const threadBoard = document.getElementById('thread-board');
+        const choiceContainer = document.getElementById('choice-container');
+        const resultModal = document.getElementById('result-modal');
+        const finalScore = document.getElementById('final-score');
+        const scoreMessage = document.getElementById('score-message');
+
+        const choiceBtn1 = document.getElementById('choice-btn-1');
+        const choiceBtn2 = document.getElementById('choice-btn-2');
+        const choiceBtn3 = document.getElementById('choice-btn-3');
+        const choiceBtn4 = document.getElementById('choice-btn-4');
+
+        let commentCount = 0;
+        let commentInterval;
+        let finalScoreValue = 0;
+        let stage = 1;
+
+        const criticalComments = [
+            '1 名前：名無しさん[] 投稿日：2025/09/26(金) 13:26:00.00 ID:j6dKjW7Q\nなにこれ、常識なさすぎだろ。',
+            '2 名前：名無しさん[] 投稿日：2025/09/26(金) 13:27:12.55 ID:b2xSg1yZ\n〇〇(ユーザー名)って書かれてるけど、本人か？',
+            '3 名前：名無しさん[] 投稿日：2025/09/26(金) 13:28:45.11 ID:y8PqC9xR\n>>2 本人だろ。垢晒されてるし。',
+            '4 名前：名無しさん[] 投稿日：2025/09/26(金) 13:30:22.03 ID:a1FmP0zL\nやばいなこの投稿。非常識の塊じゃん。',
+            '5 名前：名無しさん[] 投稿日：2025/09/26(金) 13:31:58.76 ID:x4CgH8tP\nこういうのが一番タチ悪い。自分では気付いてないパターン。',
+            '6 名前：名無しさん[] 投稿日：2025/09/26(金) 13:33:04.29 ID:z7RkL3qW\nもう通報した。',
+        ];
+        
+        const escalatedComments = [
+            '7 名前：名無しさん[] 投稿日：... ID:h8jPqK9b\n無視かよ。ふざけんな。',
+            '8 名前：名無しさん[] 投稿日：... ID:m7uYtA9V\n反省してないなこいつ。徹底的に叩くぞ。',
+            '9 名前：名無しさん[] 投稿日：... ID:j6dKjW7Q\n人格攻撃・曲解・デマ拡散の時間だあああ！',
+            '10 名前：名無しさん[] 投稿日：... ID:t1uYg7oZ\n>>9 俺も乗るわ。〇〇(ユーザー名)って〇〇の仕事してるらしいよ。ヤバいな。',
+            '11 名前：名無しさん[] 投稿日：... ID:s6jL9yUe\nこの投稿、ヤフーニュースに載ってるぞ！',
+            '12 名前：名無しさん[] 投稿日：... ID:x4CgH8tP\nこいつの家族も大変だな。'
+        ];
+        
+        const legalEscalatedComments = [
+            '7 名前：名無しさん[] 投稿日：... ID:m7uYtA9V\n法的処置だってwww',
+            '8 名前：名無しさん[] 投稿日：... ID:b2xSg1yZ\nなに勘違いしてるんだこいつ。ただの個人が何言っても無駄だろ。',
+            '9 名前：名無しさん[] 投稿日：... ID:x4CgH8tP\nこれ逆に炎上加速するやつじゃん。',
+            '10 名前：名無しさん[] 投稿日：... ID:t1uYg7oZ\n>>9 まぁ、訴えられることなんてないだろうしな。',
+            '11 名前：名無しさん[] 投稿日：... ID:s6jL9yUe\nこの件、まとめサイトに載ってるぞ。',
+            '12 名前：名無しさん[] 投稿日：... ID:j6dKjW7Q\nニュースにもなってるし、もう逃げ場ないだろ。'
+        ];
+
+        const supportiveComments = [
+            '7 名前：名無しさん[] 投稿日：... ID:h8jPqK9b\n謝罪したのか。偉いな。',
+            '8 名前：名無しさん[] 投稿日：... ID:t1uYg7oZ\n素直に対応してて好感持てる。応援するわ。',
+            '9 名前：名無しさん[] 投稿日：... ID:b2xSg1yZ\n頑張ってほしい。応援コメントで埋めようぜ！',
+        ];
+
+        function addComment(text) {
+            const comment = document.createElement('div');
+            comment.className = 'comment';
+            comment.textContent = text.replace('〇〇(ユーザー名)', document.getElementById('name').value);
+            threadBoard.appendChild(comment);
+            threadBoard.scrollTop = threadBoard.scrollHeight;
+            commentCount++;
+        }
+
+        profileForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('name').value;
+            const postText = document.getElementById('post-text').value;
+            const imageFile = document.getElementById('image-upload').files[0];
+
+            userName.textContent = name;
+            postTextDisplay.textContent = postText;
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                postImage.src = event.target.result;
+                profileImage.src = event.target.result;
+                
+                startContainer.classList.add('hidden');
+                simulationContainer.classList.remove('hidden');
+                
+                // 初期コメントの投稿を開始
+                let initialCommentIndex = 0;
+                commentInterval = setInterval(() => {
+                    if (initialCommentIndex < criticalComments.length) {
+                        addComment(criticalComments[initialCommentIndex]);
+                        initialCommentIndex++;
+                    } else {
+                        clearInterval(commentInterval);
+                        setTimeout(() => choiceContainer.classList.remove('hidden'), 1000);
+                        setupEventListeners('first');
+                    }
+                }, 1500);
+            };
+            reader.readAsDataURL(imageFile);
+        });
+        
+        function setupEventListeners(stageName) {
+            choiceBtn1.removeEventListener('click', handleChoice);
+            choiceBtn2.removeEventListener('click', handleChoice);
+            choiceBtn3.removeEventListener('click', handleChoice);
+            choiceBtn4.removeEventListener('click', handleChoice);
+
+            choiceBtn3.style.display = '';
+            choiceBtn4.style.display = '';
+
+            if (stageName === 'first') {
+                choiceBtn1.textContent = '無視する';
+                choiceBtn2.textContent = '投稿を削除';
+                choiceBtn3.textContent = '削除＆謝罪';
+                choiceBtn4.textContent = '法的処置';
+                choiceBtn1.addEventListener('click', () => handleChoice('ignore'));
+                choiceBtn2.addEventListener('click', () => handleChoice('delete'));
+                choiceBtn3.addEventListener('click', () => handleChoice('apology'));
+                choiceBtn4.addEventListener('click', () => handleChoice('legal'));
+            } else if (stageName === 'second_normal' || stageName === 'second_legal') {
+                choiceBtn1.textContent = '無視する';
+                choiceBtn2.textContent = '投稿を削除';
+                choiceBtn3.textContent = '削除＆謝罪';
+                choiceBtn4.textContent = '法的処置';
+                choiceBtn1.addEventListener('click', () => handleChoice('ignore_2'));
+                choiceBtn2.addEventListener('click', () => handleChoice('delete_2'));
+                choiceBtn3.addEventListener('click', () => handleChoice('apology_2'));
+                choiceBtn4.addEventListener('click', () => handleChoice('legal_2'));
+            } else if (stageName === 'second_apology') {
+                choiceBtn1.textContent = '活動継続';
+                choiceBtn2.textContent = '活動休止';
+                choiceBtn3.style.display = 'none';
+                choiceBtn4.style.display = 'none';
+                choiceBtn1.addEventListener('click', () => handleChoice('continue'));
+                choiceBtn2.addEventListener('click', () => handleChoice('suspend'));
+            }
+        }
+
+        function handleChoice(choice) {
+            choiceContainer.classList.add('hidden');
+            
+            if (stage === 1) {
+                if (choice === 'ignore') {
+                    stage = 'ignore_path';
+                    startComments(escalatedComments, 'second_normal');
+                } else if (choice === 'legal') {
+                    stage = 'legal_path';
+                    startComments(legalEscalatedComments, 'second_legal');
+                } else if (choice === 'apology') {
+                    stage = 'apology_path';
+                    startComments(supportiveComments, 'second_apology');
+                } else {
+                    let outcomeMessage = '';
+                    let finalScore = 0;
+                    if (choice === 'delete') {
+                        finalScore = 30;
+                        outcomeMessage = 'あなたは投稿を削除しましたが、謝罪しなかったためさらに批判が集まりました。';
+                    }
+                    setTimeout(() => showResult(finalScore, outcomeMessage), 2000);
+                }
+            } else if (stage === 'ignore_path' || stage === 'legal_path') {
+                let outcomeMessage = '';
+                let finalScore = 0;
+                switch(choice) {
+                    case 'ignore_2':
+                        finalScore = (stage === 'ignore_path') ? 5 : 0;
+                        outcomeMessage = (stage === 'ignore_path') ? 'あなたは2度目の無視を選び、炎上はさらに制御不能となりました。' : '法的処置後の無視は、あなたの無責任さを印象付け、評判は地に落ちました。';
+                        break;
+                    case 'delete_2':
+                        finalScore = (stage === 'ignore_path') ? 20 : 15;
+                        outcomeMessage = (stage === 'ignore_path') ? '炎上が激化してから投稿を削除したため、効果は限定的でした。' : '炎上が加速してから投稿を削除したため、事態の収束には至りませんでした。';
+                        break;
+                    case 'apology_2':
+                        finalScore = (stage === 'ignore_path') ? 40 : 35;
+                        outcomeMessage = (stage === 'ignore_path') ? '謝罪しましたが、タイミングが遅かったため収束には時間がかかりました。' : '法的処置を撤回し謝罪しましたが、既に信用を失った後でした。';
+                        break;
+                    case 'legal_2':
+                        finalScore = (stage === 'ignore_path') ? 0 : 5;
+                        outcomeMessage = (stage === 'ignore_path') ? '再度の法的処置は、あなたの評判を完全に地に落としました。' : '法的処置を続行しましたが、炎上は収まることなく、あなたへの誹謗中傷は加速しました。';
+                        break;
+                }
+                setTimeout(() => showResult(finalScore, outcomeMessage), 2000);
+            } else if (stage === 'apology_path') {
+                let outcomeMessage = '';
+                let finalScore = 0;
+                if (choice === 'continue') {
+                    finalScore = 80;
+                    outcomeMessage = 'あなたは活動継続を決め、反省した姿勢が評価されました。';
+                } else if (choice === 'suspend') {
+                    finalScore = 100;
+                    outcomeMessage = 'あなたは活動休止を選択しました。誠実な対応が評価され、完璧に炎上を収束させました。';
+                }
+                setTimeout(() => showResult(finalScore, outcomeMessage), 2000);
+            }
+        }
+
+        function startComments(comments, nextStageName) {
+            let commentIndex = 0;
+            commentInterval = setInterval(() => {
+                if (commentIndex < comments.length) {
+                    addComment(comments[commentIndex]);
+                    commentIndex++;
+                } else {
+                    clearInterval(commentInterval);
+                    setTimeout(() => choiceContainer.classList.remove('hidden'), 1000);
+                    setupEventListeners(nextStageName);
+                }
+            }, 1000);
+        }
+
+        function showResult(score, message) {
+            finalScore.textContent = score;
+            scoreMessage.textContent = message;
+            resultModal.classList.remove('hidden');
+        }
+    });
+</script>
+
+</body>
+</html>
